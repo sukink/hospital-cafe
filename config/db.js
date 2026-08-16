@@ -8,6 +8,8 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME || 'hospital_food',
   port: process.env.DB_PORT || 3306,
 
+  family: 4,
+
   ssl: {
     rejectUnauthorized: false
   },
