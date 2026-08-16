@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hospital Café</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ LANDING SCREEN ============ -->
+  <section id="screen-landing" class="screen active" aria-label="Home">
+    <div class="landing-header">
+      <div class="logo-mark" aria-hidden="true">🍽️</div>
+      <h1>Hospital Café</h1>
+      <p class="tagline">Welcome to Hospital Café</p>
+      <p class="prompt">What would you like to do?</p>
+    </div>
+    <div class="landing-options">
+      <button class="option-card food" id="btn-food-order" type="button">
+        <span class="icon" aria-hidden="true">🍽️</span>
+        <span class="title">FOOD ORDER</span>
+        <span class="subtitle">Order food to your room</span>
+      </button>
+      <button class="option-card admin" id="btn-admin" type="button">
+        <span class="icon" aria-hidden="true">👨‍🍳</span>
+        <span class="title">ADMIN</span>
+        <span class="subtitle">Kitchen management</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ ROOM NUMBER SCREEN ============ -->
+  <section id="screen-room" class="screen" aria-label="Enter room number">
+    <div class="topbar">
+      <button class="back-btn" data-back="landing" aria-label="Go back">←</button>
+      <h1>Hospital Café</h1>
+    </div>
+    <div class="form-card">
+      <h2>Enter Room Number</h2>
+      <p class="hint">We'll deliver your order directly to your room.</p>
+      <form id="room-form" novalidate>
+        <div class="field">
+          <label for="room-input">Room Number</label>
+          <input id="room-input" name="room" type="text" inputmode="text" placeholder="e.g. 204" maxlength="20" autocomplete="off" />
+        </div>
+        <p class="error-text" id="room-error" role="alert"></p>
+        <button class="btn" type="submit">CONTINUE</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ MENU SCREEN ============ -->
+  <section id="screen-menu" class="screen" aria-label="Food menu">
+    <div class="topbar">
+      <button class="back-btn" data-back="room" aria-label="Go back">←</button>
+      <h1>Hospital Café</h1>
+    </div>
+    <div class="menu-toolbar">
+      <span class="room-chip" id="menu-room-chip">📍 Room —</span>
+      <div class="category-scroll" id="category-scroll" role="tablist" aria-label="Food categories"></div>
+      <div class="filter-row" role="group" aria-label="Veg / Non-veg filter">
+        <button class="filter-btn active" data-filter="all" type="button">All</button>
+        <button class="filter-btn" data-filter="veg" type="button">🟢 Veg</button>
+        <button class="filter-btn" data-filter="nonveg" type="button">🔴 Non-Veg</button>
+      </div>
+    </div>
+    <div class="food-grid" id="food-grid"></div>
+    <div class="empty-state" id="menu-empty" style="display:none;">No items match this filter.</div>
+  </section>
+
+  <!-- ============ CART / ORDER SUMMARY SCREEN ============ -->
+  <section id="screen-cart" class="screen" aria-label="Cart and order summary">
+    <div class="topbar">
+      <button class="back-btn" data-back="menu" aria-label="Go back">←</button>
+      <h1>Your Order</h1>
+    </div>
+    <div class="room-line" id="cart-room-line">Room No: —</div>
+    <div class="cart-list" id="cart-list"></div>
+    <div class="empty-state" id="cart-empty" style="display:none;">Your cart is empty. Go back to the menu to add items.</div>
+
+    <div class="form-card" style="max-width:100%; text-align:left;" id="instructions-card">
+      <div class="field" style="margin-bottom:0;">
+        <label for="instructions-input">Special Instructions (Optional)</label>
+        <textarea id="instructions-input" maxlength="300" placeholder="e.g. Less spicy, no sugar, no onion"></textarea>
+      </div>
+    </div>
+
+    <div class="summary-box" id="summary-box">
+      <h3>Order Summary</h3>
+      <div id="summary-rows"></div>
+      <div class="summary-row total">
+        <span>TOTAL</span>
+        <span id="summary-total">₹0</span>
+      </div>
+    </div>
+
+    <p class="error-text" id="order-error" role="alert" style="text-align:center;"></p>
+    <button class="btn block" id="place-order-btn" type="button" style="margin-top:16px;">PLACE ORDER</button>
+  </section>
+
+  <!-- ============ CONFIRMATION SCREEN ============ -->
+  <section id="screen-confirm" class="screen" aria-label="Order confirmation">
+    <div class="confirm-wrap">
+      <div class="confirm-check" aria-hidden="true">✓</div>
+      <h2>ORDER PLACED SUCCESSFULLY</h2>
+      <p class="order-no" id="confirm-order-no">Order #—</p>
+
+      <div class="summary-box" style="text-align:left; max-width:420px; margin:0 auto;">
+        <div class="room-line" id="confirm-room-line">Room No: —</div>
+        <div id="confirm-rows"></div>
+        <div class="summary-row total">
+          <span>TOTAL</span>
+          <span id="confirm-total">₹0</span>
+        </div>
+      </div>
+
+      <div>
+        <span class="status-pill status-pending" id="confirm-status">🟡 Pending</span>
+      </div>
+      <p class="footnote">Your order has been sent to the kitchen.</p>
+
+      <button class="btn secondary block" id="new-order-btn" type="button" style="max-width:280px; margin:20px auto 0;">Place Another Order</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- Sticky mobile cart bar -->
+<div class="cart-bar" id="cart-bar">
+  <div class="cart-info">
+    <strong id="cart-bar-count">0 Items</strong>
+    <span id="cart-bar-total">₹0</span>
+  </div>
+  <button class="view-cart-btn" id="view-cart-btn" type="button">View Cart</button>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/config.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

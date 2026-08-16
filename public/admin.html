@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hospital Café — Admin</title>
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+
+<!-- ============ ADMIN LOGIN ============ -->
+<div id="admin-login-view">
+  <div class="landing-header">
+    <div class="logo-mark" aria-hidden="true">👨‍🍳</div>
+    <h1>Hospital Café</h1>
+    <p class="tagline">Admin Login</p>
+  </div>
+  <div class="form-card">
+    <h2>Enter Password</h2>
+    <p class="hint">Kitchen &amp; management access only.</p>
+    <form id="admin-login-form" novalidate>
+      <div class="field">
+        <label for="admin-password-input">Password</label>
+        <input id="admin-password-input" type="password" placeholder="********" autocomplete="off" />
+      </div>
+      <p class="error-text" id="admin-login-error" role="alert"></p>
+      <button class="btn" type="submit">LOGIN</button>
+      <button class="btn secondary block" type="button" id="admin-back-btn">← Back</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ ADMIN DASHBOARD ============ -->
+<div id="admin-app" style="display:none;">
+  <div class="admin-topbar">
+    <div class="brand"><span class="badge">🏥</span> Hospital Café — Admin Dashboard</div>
+    <button class="logout-btn" id="logout-btn" type="button">LOGOUT</button>
+  </div>
+
+  <div class="admin-tabs" role="tablist">
+    <button class="admin-tab-btn active" data-tab="orders" type="button">Orders</button>
+    <button class="admin-tab-btn" data-tab="menu" type="button">Menu</button>
+    <button class="admin-tab-btn" data-tab="stats" type="button">Statistics</button>
+  </div>
+
+  <!-- ---- STATISTICS (shown at top of orders tab too, but has its own tab for clarity) ---- -->
+  <section class="admin-section" id="tab-stats">
+    <div class="stats-grid" id="stats-grid"></div>
+  </section>
+
+  <!-- ---- ORDERS TAB ---- -->
+  <section class="admin-section active" id="tab-orders">
+    <div class="stats-grid" id="stats-grid-mini"></div>
+
+    <div class="order-filter-row" id="order-filter-row">
+      <button class="chip-btn active" data-status="" type="button">All</button>
+      <button class="chip-btn" data-status="Pending" type="button">Pending</button>
+      <button class="chip-btn" data-status="Preparing" type="button">Preparing</button>
+      <button class="chip-btn" data-status="Ready" type="button">Ready</button>
+      <button class="chip-btn" data-status="Delivered" type="button">Delivered</button>
+      <button class="chip-btn" data-status="Cancelled" type="button">Cancelled</button>
+    </div>
+
+    <div class="orders-cards" id="orders-cards"></div>
+
+    <div class="orders-table-wrap">
+      <table class="orders-table">
+        <thead>
+          <tr>
+            <th>Order</th><th>Room</th><th>Items</th><th>Total</th><th>Time</th><th>Status</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="orders-table-body"></tbody>
+      </table>
+    </div>
+
+    <div class="empty-state" id="orders-empty" style="display:none;">No orders found.</div>
+  </section>
+
+  <!-- ---- MENU TAB ---- -->
+  <section class="admin-section" id="tab-menu">
+    <button class="add-item-btn" id="add-item-btn" type="button">+ Add New Food Item</button>
+    <div class="menu-admin-grid" id="menu-admin-grid"></div>
+  </section>
+</div>
+
+<!-- ---- MENU ITEM MODAL ---- -->
+<div class="modal-overlay" id="menu-modal-overlay">
+  <div class="modal-sheet">
+    <h2 id="menu-modal-title">Add Food Item</h2>
+    <form id="menu-item-form" novalidate>
+      <input type="hidden" id="mi-id" />
+      <div class="field">
+        <label for="mi-name">Name</label>
+        <input id="mi-name" type="text" required />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="mi-category">Category</label>
+          <select id="mi-category">
+            <option>Breakfast</option>
+            <option>Main Course</option>
+            <option>Snacks</option>
+            <option>Beverages</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="mi-type">Type</label>
+          <select id="mi-type">
+            <option value="veg">Veg</option>
+            <option value="nonveg">Non-Veg</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="mi-serving">Serving</label>
+          <input id="mi-serving" type="text" placeholder="e.g. 1 Plate" required />
+        </div>
+        <div class="field">
+          <label for="mi-price">Price (₹)</label>
+          <input id="mi-price" type="number" min="1" step="1" required />
+        </div>
+      </div>
+      <div class="field">
+        <label for="mi-description">Description</label>
+        <textarea id="mi-description" maxlength="500"></textarea>
+      </div>
+      <div class="checkbox-field">
+        <input id="mi-available" type="checkbox" checked />
+        <label for="mi-available" style="margin:0;">Available on menu</label>
+      </div>
+      <p class="error-text" id="menu-modal-error" role="alert"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" id="menu-modal-cancel">Cancel</button>
+        <button type="submit" class="btn" id="menu-modal-save">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/config.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
