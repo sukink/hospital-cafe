@@ -31,15 +31,6 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Not found.' });
-});
-
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
-});
 app.get('/api/db-test', async (req, res) => {
   try {
     const pool = require('./config/db');
@@ -54,6 +45,15 @@ app.get('/api/db-test', async (req, res) => {
     });
   }
 });
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Not found.' });
+});
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
+});
+
 app.listen(PORT, () => {
   console.log(`Hospital Cafe server running at http://localhost:${PORT}`);
 });
