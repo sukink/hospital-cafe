@@ -40,7 +40,20 @@ app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
 });
-
+app.get('/api/db-test', async (req, res) => {
+  try {
+    const pool = require('./config/db');
+    const [rows] = await pool.query('SELECT 1 AS connected');
+    res.json({ success: true, database: rows[0] });
+  } catch (err) {
+    console.error('DB TEST ERROR:', err);
+    res.status(500).json({
+      success: false,
+      error: err.code,
+      message: err.message
+    });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Hospital Cafe server running at http://localhost:${PORT}`);
 });
