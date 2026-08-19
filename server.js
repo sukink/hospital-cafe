@@ -35,13 +35,24 @@ app.get('/api/db-test', async (req, res) => {
   try {
     const pool = require('./config/db');
     const [rows] = await pool.query('SELECT 1 AS connected');
-    res.json({ success: true, database: rows[0] });
+
+    res.json({
+      success: true,
+      database: rows[0]
+    });
   } catch (err) {
     console.error('DB TEST ERROR:', err);
+
     res.status(500).json({
       success: false,
       error: err.code,
-      message: err.message
+      message: err.message,
+      debug: {
+        host: process.env.DB_HOST || "MISSING",
+        port: process.env.DB_PORT || "MISSING",
+        user: process.env.DB_USER || "MISSING",
+        node_env: process.env.NODE_ENV || "MISSING"
+      }
     });
   }
 });
