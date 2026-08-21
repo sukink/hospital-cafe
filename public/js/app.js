@@ -264,7 +264,7 @@
     document.getElementById('summary-total').textContent = `₹${Cart.getTotalAmount()}`;
   }
 
-  // --- PAYMENT LOGIC ---
+  // --- PAYMENT & TRANSACTION LOGIC ---
 
   document.getElementById('place-order-btn').addEventListener('click', () => {
     const errorEl = document.getElementById('order-error');
@@ -286,13 +286,17 @@
     btn.disabled = true;
     btn.textContent = 'PROCESSING...';
 
+    // Generate unique random Transaction ID
+    const dummyTxnId = 'TXN-' + Math.floor(1000000000 + Math.random() * 9000000000);
+
     setTimeout(async () => {
       const payload = {
         roomNumber: state.roomNumber,
         items: Cart.getItems().map(it => ({ itemId: it.id, quantity: it.quantity })),
         specialInstructions: document.getElementById('instructions-input').value.trim(),
         total_amount: Cart.getTotalAmount(),
-        payment_status: 'Paid'
+        payment_status: 'Paid',
+        transaction_id: dummyTxnId
       };
 
       try {

@@ -200,9 +200,10 @@
     emptyEl.style.display = 'none';
 
     orders.forEach(order => {
-      // Create the dynamic payment badge
+      // Payment badge with Transaction ID
       const paymentBadge = order.payment_status === 'Paid' 
-        ? `<span style="background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; display: inline-block; margin-top: 6px;">💰 Amount Received: ₹${order.total_amount}</span>`
+        ? `<span style="background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; display: inline-block; margin-top: 6px;">💰 Amount Received: ₹${order.total_amount}</span>
+           <br><span style="font-size: 11px; color: #555; display: inline-block; margin-top: 4px; font-family: monospace;">Txn ID: ${escapeHtml(order.transaction_id || 'N/A')}</span>`
         : `<span style="background: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-block; margin-top: 6px;">Unpaid</span>`;
 
       // Mobile card
