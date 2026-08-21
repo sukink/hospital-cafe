@@ -264,8 +264,10 @@
     document.getElementById('summary-total').textContent = `₹${Cart.getTotalAmount()}`;
   }
 
-  document.getElementById('place-order-btn').addEventListener('click', async () => {
-    const btn = document.getElementById('place-order-btn');
+  // --- NEW PAYMENT LOGIC ---
+
+  // 1. First button: Validates cart and moves to Payment Screen
+  document.getElementById('place-order-btn').addEventListener('click', () => {
     const errorEl = document.getElementById('order-error');
     errorEl.textContent = '';
 
@@ -274,41 +276,65 @@
       return;
     }
 
-    const payload = {
-      roomNumber: state.roomNumber,
-      items: Cart.getItems().map(it => ({ itemId: it.id, quantity: it.quantity })),
-      specialInstructions: document.getElementById('instructions-input').value.trim()
-    };
-
-    btn.disabled = true;
-    btn.textContent = 'Placing order…';
-
-    try {
-      const res = await fetch(`${API}/api/orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!data.success) {
-        errorEl.textContent = data.message || 'Could not place your order. Please try again.';
-        btn.disabled = false;
-        btn.textContent = 'PLACE ORDER';
-        return;
-      }
-      state.lastOrder = data.order;
-      renderConfirmation(data.order);
-      Cart.clear();
-      updateCartBar();
-      showScreen('confirm');
-    } catch (err) {
-      console.error(err);
-      errorEl.textContent = 'Network error. Please check your connection and try again.';
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'PLACE ORDER';
-    }
+    // Set the amount on the payment screen
+    const total = Cart.getTotalAmount();
+    document.getElementById('payment-total-display').textContent = `₹${total}`;
+    
+    // Switch to payment screen
+    showScreen('payment');
   });
+
+  // 2. Second button: Simulates payment and places the order
+  document.getElementById('dummy-pay-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('dummy-pay-btn');
+    btn.disabled = true;
+    btn.textContent = 'PROCESSING...';
+
+    // Simulate 2-second payment gateway delay
+    setTimeout(async () => {
+      const payload = {
+        roomNumber: state.roomNumber,
+        items: Cart.getItems().map(it => ({ itemId: it.id, quantity: it.quantity })),
+        specialInstructions: document.getElementById('instructions-input').value.trim(),
+        total_amount: Cart.getTotalAmount(), // Tell backend the amount
+        payment_status: 'Paid'               // Tell backend it is paid
+      };
+
+      try {
+        const res = await fetch(`${API}/api/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        
+        if (!data.success) {
+          alert(data.message || 'Could not place your order. Please try again.');
+          btn.disabled = false;
+          btn.textContent = 'PAY NOW';
+          return;
+        }
+        
+        state.lastOrder = data.order;
+        renderConfirmation(data.order);
+        Cart.clear();
+        updateCartBar();
+        
+        // Reset payment button for next time
+        btn.disabled = false;
+        btn.textContent = 'PAY NOW';
+        
+        showScreen('confirm');
+      } catch (err) {
+        console.error(err);
+        alert('Network error. Please check your connection and try again.');
+        btn.disabled = false;
+        btn.textContent = 'PAY NOW';
+      }
+    }, 2000);
+  });
+
+  // -------------------------
 
   function renderConfirmation(order) {
     document.getElementById('confirm-order-no').textContent = `Order #${order.id}`;

@@ -200,6 +200,11 @@
     emptyEl.style.display = 'none';
 
     orders.forEach(order => {
+      // Create the dynamic payment badge
+      const paymentBadge = order.payment_status === 'Paid' 
+        ? `<span style="background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; display: inline-block; margin-top: 6px;">💰 Amount Received: ₹${order.total_amount}</span>`
+        : `<span style="background: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-block; margin-top: 6px;">Unpaid</span>`;
+
       // Mobile card
       const card = document.createElement('div');
       card.className = 'order-card';
@@ -209,7 +214,8 @@
           <span class="room">Room ${escapeHtml(order.room_number)}</span>
         </div>
         <div class="time">${formatTime(order.order_time)}</div>
-        <div class="items-list">
+        ${paymentBadge}
+        <div class="items-list" style="margin-top: 10px;">
           ${order.items.map(it => `<div class="row"><span>${escapeHtml(it.item_name)} × ${it.quantity}</span><span>₹${it.amount}</span></div>`).join('')}
         </div>
         ${order.special_instructions ? `<div class="instructions">Note: ${escapeHtml(order.special_instructions)}</div>` : ''}
@@ -227,7 +233,7 @@
         <td>#${order.id}</td>
         <td>${escapeHtml(order.room_number)}</td>
         <td>${itemsSummary(order.items)}${order.special_instructions ? `<br><span style="color:var(--muted); font-size:12px;">Note: ${escapeHtml(order.special_instructions)}</span>` : ''}</td>
-        <td>₹${order.total_amount}</td>
+        <td>₹${order.total_amount}<br>${paymentBadge}</td>
         <td>${formatTime(order.order_time)}</td>
         <td></td>
         <td></td>

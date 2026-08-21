@@ -31,6 +31,7 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
 app.get('/api/db-test', async (req, res) => {
   try {
     const pool = require('./config/db');
@@ -56,6 +57,7 @@ app.get('/api/db-test', async (req, res) => {
     });
   }
 });
+
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Not found.' });
 });
@@ -68,3 +70,12 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Hospital Cafe server running at http://localhost:${PORT}`);
 });
+
+
+const pool = require('./config/db');
+pool.query("ALTER TABLE orders ADD COLUMN payment_status VARCHAR(50) DEFAULT 'Pending'")
+  .then(()=> console.log('✅ Added payment_status'))
+  .catch(()=> console.log('⚠️ payment_status already exists'));
+pool.query("ALTER TABLE orders ADD COLUMN total_amount DECIMAL(10,2) DEFAULT 0.00")
+  .then(()=> console.log('✅ Added total_amount'))
+  .catch(()=> console.log('⚠️ total_amount already exists'));
