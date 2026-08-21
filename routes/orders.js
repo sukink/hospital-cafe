@@ -90,7 +90,7 @@ router.post('/', async (req, res) => {
 router.get('/room/:roomNumber', async (req, res) => {
   try {
     const [orders] = await pool.query(
-      'SELECT id, total_amount, status, payment_status, DATE_FORMAT(order_time, "%h:%i %p") as time FROM orders WHERE room_number = ? ORDER BY id DESC LIMIT 10',
+      `SELECT id, total_amount, status, payment_status, DATE_FORMAT(order_time, '%h:%i %p') as time FROM orders WHERE room_number = ? ORDER BY id DESC LIMIT 10`,
       [req.params.roomNumber.trim()]
     );
     res.json({ success: true, orders });
