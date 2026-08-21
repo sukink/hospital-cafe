@@ -27,7 +27,7 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Hospital Cafe API is running.' });
 });
 
-// Fallback: send index.html for the root (static middleware already serves other files)
+// Fallback: send index.html for the root
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -70,18 +70,3 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Hospital Cafe server running at http://localhost:${PORT}`);
 });
-
-
-const pool = require('./config/db');
-pool.query("ALTER TABLE orders ADD COLUMN payment_status VARCHAR(50) DEFAULT 'Pending'")
-  .then(()=> console.log('✅ Added payment_status'))
-  .catch(()=> console.log('⚠️ payment_status already exists'));
-pool.query("ALTER TABLE orders ADD COLUMN total_amount DECIMAL(10,2) DEFAULT 0.00")
-  .then(()=> console.log('✅ Added total_amount'))
-  .catch(()=> console.log('⚠️ total_amount already exists'));
-
-const pool = require('./config/db');
-pool.query("ALTER TABLE orders ADD COLUMN transaction_id VARCHAR(100) DEFAULT NULL")
-  .then(()=> console.log('✅ Added transaction_id'))
-  .catch(()=> console.log('⚠️ transaction_id already exists'));
-
