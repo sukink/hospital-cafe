@@ -67,6 +67,20 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Hospital Cafe server running at http://localhost:${PORT}`);
+  
+  // Safe database schema auto-sync
+  try {
+    const pool = require('./config/db');
+    await pool.query("ALTER TABLE orders ADD COLUMN transaction_id VARCHAR(100) DEFAULT NULL");
+    console.log('✅ Schema check: transaction_id column verified/added.');
+  } catch (err) {
+    // Error code ER_DUP_FIELDNAME (1060) means the column already exists
+    if (err.errno === 1060 || err.code === 'ER_DUP_FIELDNAME') {
+      console.log('ℹ️ Schema check: transaction_id column already exists.');
+    } else {
+      console.error('Schema sync notice:', err.message);
+    }
+  }
 });
