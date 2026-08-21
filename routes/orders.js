@@ -8,7 +8,7 @@ const ROOM_REGEX = /^[A-Za-z0-9\- ]{1,20}$/;
 
 // 1. POST /api/orders - Public, patient places an order
 router.post('/', async (req, res) => {
-  const { roomNumber, items, specialInstructions = '', payment_status } = req.body || {};
+  const { roomNumber, items, specialInstructions = '', payment_status, transaction_id } = req.body || {};
 
   if (!roomNumber || typeof roomNumber !== 'string' || !roomNumber.trim()) {
     return res.status(400).json({ success: false, message: 'Please enter your room number.' });
@@ -49,10 +49,11 @@ router.post('/', async (req, res) => {
     
     total = Math.round(total * 100) / 100;
     const statusOfPayment = payment_status || 'Unpaid';
+    const finalTxnId = transaction_id || null;
 
     const [orderResult] = await connection.query(
-      'INSERT INTO orders (room_number, total_amount, special_instructions, status, payment_status) VALUES (?, ?, ?, ?, ?)',
-      [roomNumber.trim(), total, specialInstructions ? String(specialInstructions).trim() : '', 'Pending', statusOfPayment]
+      'INSERT INTO orders (room_number, total_amount, special_instructions, status, payment_status, transaction_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [roomNumber.trim(), total, specialInstructions ? String(specialInstructions).trim() : '', 'Pending', statusOfPayment, finalTxnId]
     );
     
     const orderId = orderResult.insertId;
@@ -74,7 +75,8 @@ router.post('/', async (req, res) => {
         items: orderItemsToInsert,
         total,
         status: 'Pending',
-        payment_status: statusOfPayment
+        payment_status: statusOfPayment,
+        transaction_id: finalTxnId
       }
     });
   } catch (err) {
@@ -90,7 +92,7 @@ router.post('/', async (req, res) => {
 router.get('/room/:roomNumber', async (req, res) => {
   try {
     const [orders] = await pool.query(
-      `SELECT id, total_amount, status, payment_status, DATE_FORMAT(order_time, '%h:%i %p') as time FROM orders WHERE room_number = ? ORDER BY id DESC LIMIT 10`,
+      `SELECT id, total_amount, status, payment_status, transaction_id, DATE_FORMAT(order_time, '%h:%i %p') as time FROM orders WHERE room_number = ? ORDER BY id DESC LIMIT 10`,
       [req.params.roomNumber.trim()]
     );
     res.json({ success: true, orders });
