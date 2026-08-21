@@ -57,6 +57,7 @@
     <div class="topbar">
       <button class="back-btn" data-back="room" aria-label="Go back">←</button>
       <h1>Hospital Café</h1>
+      <button id="btn-my-orders" style="background:none; border:none; color:var(--primary); font-weight:bold; cursor:pointer;">📜 History</button>
     </div>
     <div class="menu-toolbar">
       <span class="room-chip" id="menu-room-chip">📍 Room —</span>
@@ -69,6 +70,18 @@
     </div>
     <div class="food-grid" id="food-grid"></div>
     <div class="empty-state" id="menu-empty" style="display:none;">No items match this filter.</div>
+  </section>
+
+  <!-- ============ MY ORDERS SCREEN ============ -->
+  <section id="screen-my-orders" class="screen" aria-label="My Orders history">
+    <div class="topbar">
+      <button class="back-btn" data-back="menu" aria-label="Go back">←</button>
+      <h1>My Orders</h1>
+    </div>
+    <div class="form-card" style="max-width: 100%; text-align: left; margin-top: 15px;">
+      <h3 id="my-orders-title" style="margin-top: 0;">Room —</h3>
+      <div id="my-orders-list" style="margin-top: 15px;"></div>
+    </div>
   </section>
 
   <!-- ============ CART / ORDER SUMMARY SCREEN ============ -->
@@ -126,8 +139,7 @@
     </div>
   </section>
 
-</div>
-<!-- ============ DUMMY PAYMENT SCREEN ============ -->
+  <!-- ============ DUMMY PAYMENT SCREEN ============ -->
   <section id="screen-payment" class="screen" aria-label="Payment processing">
     <div class="topbar">
       <button class="back-btn" data-back="cart" aria-label="Go back">←</button>
@@ -144,6 +156,8 @@
       <button class="btn block" id="dummy-pay-btn" type="button">PAY NOW</button>
     </div>
   </section>
+
+</div>
 
 <!-- Sticky mobile cart bar -->
 <div class="cart-bar" id="cart-bar">

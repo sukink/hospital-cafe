@@ -264,9 +264,8 @@
     document.getElementById('summary-total').textContent = `₹${Cart.getTotalAmount()}`;
   }
 
-  // --- NEW PAYMENT LOGIC ---
+  // --- PAYMENT LOGIC ---
 
-  // 1. First button: Validates cart and moves to Payment Screen
   document.getElementById('place-order-btn').addEventListener('click', () => {
     const errorEl = document.getElementById('order-error');
     errorEl.textContent = '';
@@ -276,28 +275,24 @@
       return;
     }
 
-    // Set the amount on the payment screen
     const total = Cart.getTotalAmount();
     document.getElementById('payment-total-display').textContent = `₹${total}`;
     
-    // Switch to payment screen
     showScreen('payment');
   });
 
-  // 2. Second button: Simulates payment and places the order
   document.getElementById('dummy-pay-btn').addEventListener('click', async () => {
     const btn = document.getElementById('dummy-pay-btn');
     btn.disabled = true;
     btn.textContent = 'PROCESSING...';
 
-    // Simulate 2-second payment gateway delay
     setTimeout(async () => {
       const payload = {
         roomNumber: state.roomNumber,
         items: Cart.getItems().map(it => ({ itemId: it.id, quantity: it.quantity })),
         specialInstructions: document.getElementById('instructions-input').value.trim(),
-        total_amount: Cart.getTotalAmount(), // Tell backend the amount
-        payment_status: 'Paid'               // Tell backend it is paid
+        total_amount: Cart.getTotalAmount(),
+        payment_status: 'Paid'
       };
 
       try {
@@ -320,7 +315,6 @@
         Cart.clear();
         updateCartBar();
         
-        // Reset payment button for next time
         btn.disabled = false;
         btn.textContent = 'PAY NOW';
         
@@ -334,7 +328,8 @@
     }, 2000);
   });
 
-  // -------------------------
+  // --- LIVE ORDER TRACKING ---
+  let trackingInterval = null;
 
   function renderConfirmation(order) {
     document.getElementById('confirm-order-no').textContent = `Order #${order.id}`;
@@ -347,9 +342,48 @@
     const statusEl = document.getElementById('confirm-status');
     statusEl.className = 'status-pill status-pending';
     statusEl.textContent = '🟡 Pending';
+    statusEl.style = ''; 
+
+    if (trackingInterval) clearInterval(trackingInterval);
+
+    trackingInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API}/api/orders/track/${order.id}`);
+        const data = await res.json();
+        
+        if (data.success) {
+          const status = data.status;
+          
+          if (status === 'Pending') {
+            statusEl.textContent = '🟡 Pending';
+          } else if (status === 'Preparing') {
+            statusEl.textContent = '🔥 Preparing';
+            statusEl.style.backgroundColor = '#fff3cd';
+            statusEl.style.color = '#856404';
+          } else if (status === 'Ready') {
+            statusEl.textContent = '✅ Ready';
+            statusEl.style.backgroundColor = '#d4edda';
+            statusEl.style.color = '#155724';
+          } else if (status === 'Delivered') {
+            statusEl.textContent = '🎉 Delivered';
+            statusEl.style.backgroundColor = '#cce5ff';
+            statusEl.style.color = '#004085';
+            clearInterval(trackingInterval); 
+          } else if (status === 'Cancelled') {
+            statusEl.textContent = '❌ Cancelled';
+            statusEl.style.backgroundColor = '#f8d7da';
+            statusEl.style.color = '#721c24';
+            clearInterval(trackingInterval); 
+          }
+        }
+      } catch (err) {
+        console.error('Tracking connection error', err);
+      }
+    }, 5000);
   }
 
   document.getElementById('new-order-btn').addEventListener('click', () => {
+    if (trackingInterval) clearInterval(trackingInterval); 
     state.activeCategory = 'All';
     state.activeFilter = 'all';
     document.getElementById('instructions-input').value = '';
@@ -357,6 +391,49 @@
     renderMenu();
     showScreen('menu');
   });
+
+  // ---------- My Orders History ----------
+  if (document.getElementById('btn-my-orders')) {
+    document.getElementById('btn-my-orders').addEventListener('click', async () => {
+      const list = document.getElementById('my-orders-list');
+      document.getElementById('my-orders-title').textContent = `Recent Orders for Room ${state.roomNumber}`;
+      list.innerHTML = '<div style="text-align:center; padding:20px;">Loading history...</div>';
+      
+      showScreen('my-orders');
+
+      try {
+        const res = await fetch(`${API}/api/orders/room/${state.roomNumber}`);
+        const data = await res.json();
+        
+        if (data.success && data.orders.length > 0) {
+          list.innerHTML = data.orders.map(o => {
+            let statusColor = '#666';
+            if (o.status === 'Pending' || o.status === 'Preparing') statusColor = '#d39e00'; 
+            if (o.status === 'Ready' || o.status === 'Delivered') statusColor = '#28a745'; 
+            if (o.status === 'Cancelled') statusColor = '#dc3545'; 
+            
+            return `
+              <div style="border: 1px solid #eee; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <strong style="font-size: 16px;">Order #${o.id}</strong>
+                  <strong style="font-size: 16px;">₹${o.total_amount}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px;">
+                  <span style="color: #888;">🕒 ${o.time}</span>
+                  <span style="font-weight: bold; color: ${statusColor};">${o.status}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+        } else {
+          list.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">No recent orders found for this room.</div>';
+        }
+      } catch (err) {
+        list.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Error loading history.</div>';
+        console.error(err);
+      }
+    });
+  }
 
   // ---------- Utility ----------
   function escapeHtml(str) {

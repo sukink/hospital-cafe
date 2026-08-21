@@ -209,3 +209,16 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 });
 
 module.exports = router;
+// GET /api/orders/track/:id - Public route for patients to track their order
+router.get('/track/:id', async (req, res) => {
+  try {
+    const [orders] = await pool.query('SELECT status FROM orders WHERE id = ?', [req.params.id]);
+    if (orders.length === 0) {
+      return res.status(404).json({ success: false, message: 'Order not found.' });
+    }
+    res.json({ success: true, status: orders[0].status });
+  } catch (err) {
+    console.error('Tracking Error:', err);
+    res.status(500).json({ success: false, message: 'Could not track order.' });
+  }
+});
