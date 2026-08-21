@@ -9,7 +9,8 @@ const ROOM_REGEX = /^[A-Za-z0-9\- ]{1,20}$/;
 // POST /api/orders - public, patient places an order
 // Prices are ALWAYS read from the database. Frontend prices are never trusted.
 router.post('/', async (req, res) => {
-  const { roomNumber, items, specialInstructions = '' } = req.body || {};
+  // Catch the new payment_status variable from the frontend
+  const { roomNumber, items, specialInstructions = '', payment_status } = req.body || {};
 
   if (!roomNumber || typeof roomNumber !== 'string' || !roomNumber.trim()) {
     return res.status(400).json({ success: false, message: 'Please enter your room number.' });
@@ -64,9 +65,13 @@ router.post('/', async (req, res) => {
     }
     total = Math.round(total * 100) / 100;
 
+    // Safety check for payment status
+    const statusOfPayment = payment_status || 'Unpaid';
+
+    // Insert order with payment_status included
     const [orderResult] = await connection.query(
-      'INSERT INTO orders (room_number, total_amount, special_instructions, status) VALUES (?, ?, ?, ?)',
-      [roomNumber.trim(), total, specialInstructions ? String(specialInstructions).trim() : '', 'Pending']
+      'INSERT INTO orders (room_number, total_amount, special_instructions, status, payment_status) VALUES (?, ?, ?, ?, ?)',
+      [roomNumber.trim(), total, specialInstructions ? String(specialInstructions).trim() : '', 'Pending', statusOfPayment]
     );
     const orderId = orderResult.insertId;
 
@@ -87,7 +92,8 @@ router.post('/', async (req, res) => {
         items: orderItemsToInsert,
         total,
         specialInstructions: specialInstructions || '',
-        status: 'Pending'
+        status: 'Pending',
+        payment_status: statusOfPayment
       }
     });
   } catch (err) {
