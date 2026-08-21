@@ -6,10 +6,8 @@ const { requireAdmin } = require('../config/adminAuth');
 const VALID_STATUSES = ['Pending', 'Preparing', 'Ready', 'Delivered', 'Cancelled'];
 const ROOM_REGEX = /^[A-Za-z0-9\- ]{1,20}$/;
 
-// POST /api/orders - public, patient places an order
-// Prices are ALWAYS read from the database. Frontend prices are never trusted.
+// 1. POST /api/orders - Public, patient places an order
 router.post('/', async (req, res) => {
-  // Catch the new payment_status variable from the frontend
   const { roomNumber, items, specialInstructions = '', payment_status } = req.body || {};
 
   if (!roomNumber || typeof roomNumber !== 'string' || !roomNumber.trim()) {
@@ -19,18 +17,7 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Please enter a valid room number.' });
   }
   if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ success: false, message: 'Your cart is empty. Please add at least one item.' });
-  }
-  for (const it of items) {
-    if (!it || typeof it.itemId === 'undefined' || !Number.isInteger(Number(it.itemId))) {
-      return res.status(400).json({ success: false, message: 'Invalid item in cart.' });
-    }
-    if (!Number.isInteger(Number(it.quantity)) || Number(it.quantity) <= 0) {
-      return res.status(400).json({ success: false, message: 'Invalid quantity for an item in your cart.' });
-    }
-  }
-  if (specialInstructions && String(specialInstructions).length > 300) {
-    return res.status(400).json({ success: false, message: 'Special instructions are too long.' });
+    return res.status(400).json({ success: false, message: 'Your cart is empty.' });
   }
 
   const connection = await pool.getConnection();
@@ -49,13 +36,9 @@ router.post('/', async (req, res) => {
 
     for (const it of items) {
       const menuItem = menuMap.get(Number(it.itemId));
-      if (!menuItem) {
+      if (!menuItem || !menuItem.available) {
         await connection.rollback();
-        return res.status(400).json({ success: false, message: 'One of the items in your cart is no longer available.' });
-      }
-      if (!menuItem.available) {
-        await connection.rollback();
-        return res.status(400).json({ success: false, message: `"${menuItem.name}" is currently unavailable.` });
+        return res.status(400).json({ success: false, message: 'An item in your cart is unavailable.' });
       }
       const quantity = Number(it.quantity);
       const unitPrice = Number(menuItem.price);
@@ -63,16 +46,15 @@ router.post('/', async (req, res) => {
       total += amount;
       orderItemsToInsert.push({ itemId: menuItem.id, name: menuItem.name, unitPrice, quantity, amount });
     }
+    
     total = Math.round(total * 100) / 100;
-
-    // Safety check for payment status
     const statusOfPayment = payment_status || 'Unpaid';
 
-    // Insert order with payment_status included
     const [orderResult] = await connection.query(
       'INSERT INTO orders (room_number, total_amount, special_instructions, status, payment_status) VALUES (?, ?, ?, ?, ?)',
       [roomNumber.trim(), total, specialInstructions ? String(specialInstructions).trim() : '', 'Pending', statusOfPayment]
     );
+    
     const orderId = orderResult.insertId;
 
     for (const oi of orderItemsToInsert) {
@@ -91,21 +73,45 @@ router.post('/', async (req, res) => {
         roomNumber: roomNumber.trim(),
         items: orderItemsToInsert,
         total,
-        specialInstructions: specialInstructions || '',
         status: 'Pending',
         payment_status: statusOfPayment
       }
     });
   } catch (err) {
     await connection.rollback();
-    console.error('POST /api/orders error:', err);
-    res.status(500).json({ success: false, message: 'Could not place your order. Please try again.' });
+    console.error('Order Error:', err);
+    res.status(500).json({ success: false, message: 'Could not place your order.' });
   } finally {
     connection.release();
   }
 });
 
-// GET /api/orders - admin, list all orders (optionally filter by status)
+// 2. GET /api/orders/room/:roomNumber - Public, patients see their history
+router.get('/room/:roomNumber', async (req, res) => {
+  try {
+    const [orders] = await pool.query(
+      'SELECT id, total_amount, status, payment_status, DATE_FORMAT(order_time, "%h:%i %p") as time FROM orders WHERE room_number = ? ORDER BY id DESC LIMIT 10',
+      [req.params.roomNumber.trim()]
+    );
+    res.json({ success: true, orders });
+  } catch (err) {
+    console.error('Room History Error:', err);
+    res.status(500).json({ success: false, message: 'Could not load history.' });
+  }
+});
+
+// 3. GET /api/orders/track/:id - Public, patient live tracking
+router.get('/track/:id', async (req, res) => {
+  try {
+    const [orders] = await pool.query('SELECT status FROM orders WHERE id = ?', [req.params.id]);
+    if (orders.length === 0) return res.status(404).json({ success: false });
+    res.json({ success: true, status: orders[0].status });
+  } catch (err) {
+    res.status(500).json({ success: false });
+  }
+});
+
+// 4. GET /api/orders - Admin, list all orders
 router.get('/', requireAdmin, async (req, res) => {
   const { status } = req.query;
   try {
@@ -118,15 +124,14 @@ router.get('/', requireAdmin, async (req, res) => {
     query += ' ORDER BY order_time DESC';
     const [orders] = await pool.query(query, params);
 
-    if (orders.length === 0) {
-      return res.json({ success: true, orders: [] });
-    }
+    if (orders.length === 0) return res.json({ success: true, orders: [] });
 
     const orderIds = orders.map(o => o.id);
     const [items] = await pool.query(
       `SELECT * FROM order_items WHERE order_id IN (${orderIds.map(() => '?').join(',')})`,
       orderIds
     );
+    
     const itemsByOrder = new Map();
     for (const item of items) {
       if (!itemsByOrder.has(item.order_id)) itemsByOrder.set(item.order_id, []);
@@ -136,20 +141,16 @@ router.get('/', requireAdmin, async (req, res) => {
     const fullOrders = orders.map(o => ({ ...o, items: itemsByOrder.get(o.id) || [] }));
     res.json({ success: true, orders: fullOrders });
   } catch (err) {
-    console.error('GET /api/orders error:', err);
     res.status(500).json({ success: false, message: 'Could not load orders.' });
   }
 });
 
-// GET /api/orders/stats/summary - admin, dashboard statistics
+// 5. GET /api/orders/stats/summary - Admin, dashboard statistics
 router.get('/stats/summary', requireAdmin, async (req, res) => {
   try {
-    const [statusCounts] = await pool.query(
-      `SELECT status, COUNT(*) AS count FROM orders GROUP BY status`
-    );
+    const [statusCounts] = await pool.query(`SELECT status, COUNT(*) AS count FROM orders GROUP BY status`);
     const [todayStats] = await pool.query(
-      `SELECT COUNT(*) AS todaysOrders, COALESCE(SUM(total_amount), 0) AS todaysRevenue
-       FROM orders WHERE DATE(order_time) = CURDATE()`
+      `SELECT COUNT(*) AS todaysOrders, COALESCE(SUM(total_amount), 0) AS todaysRevenue FROM orders WHERE DATE(order_time) = CURDATE()`
     );
 
     const counts = { Pending: 0, Preparing: 0, Ready: 0, Delivered: 0, Cancelled: 0 };
@@ -158,67 +159,38 @@ router.get('/stats/summary', requireAdmin, async (req, res) => {
     res.json({
       success: true,
       stats: {
-        pending: counts.Pending,
-        preparing: counts.Preparing,
-        ready: counts.Ready,
-        delivered: counts.Delivered,
-        cancelled: counts.Cancelled,
+        ...counts,
         todaysOrders: todayStats[0].todaysOrders,
         todaysRevenue: Number(todayStats[0].todaysRevenue)
       }
     });
   } catch (err) {
-    console.error('GET /api/orders/stats/summary error:', err);
-    res.status(500).json({ success: false, message: 'Could not load statistics.' });
+    res.status(500).json({ success: false, message: 'Could not load stats.' });
   }
 });
 
-// GET /api/orders/:id - admin, single order detail
+// 6. GET /api/orders/:id - Admin, single order detail
 router.get('/:id', requireAdmin, async (req, res) => {
-  const { id } = req.params;
   try {
-    const [orders] = await pool.query('SELECT * FROM orders WHERE id = ?', [id]);
-    if (orders.length === 0) {
-      return res.status(404).json({ success: false, message: 'Order not found.' });
-    }
-    const [items] = await pool.query('SELECT * FROM order_items WHERE order_id = ?', [id]);
+    const [orders] = await pool.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+    if (orders.length === 0) return res.status(404).json({ success: false });
+    const [items] = await pool.query('SELECT * FROM order_items WHERE order_id = ?', [req.params.id]);
     res.json({ success: true, order: { ...orders[0], items } });
   } catch (err) {
-    console.error('GET /api/orders/:id error:', err);
-    res.status(500).json({ success: false, message: 'Could not load the order.' });
+    res.status(500).json({ success: false });
   }
 });
 
-// PATCH /api/orders/:id - admin, update order status
+// 7. PATCH /api/orders/:id - Admin, update order status
 router.patch('/:id', requireAdmin, async (req, res) => {
-  const { id } = req.params;
   const { status } = req.body || {};
-  if (!status || !VALID_STATUSES.includes(status)) {
-    return res.status(400).json({ success: false, message: 'Invalid status value.' });
-  }
+  if (!VALID_STATUSES.includes(status)) return res.status(400).json({ success: false });
   try {
-    const [result] = await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: 'Order not found.' });
-    }
+    await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, req.params.id]);
     res.json({ success: true });
   } catch (err) {
-    console.error('PATCH /api/orders/:id error:', err);
-    res.status(500).json({ success: false, message: 'Could not update the order status.' });
+    res.status(500).json({ success: false });
   }
 });
 
 module.exports = router;
-// GET /api/orders/track/:id - Public route for patients to track their order
-router.get('/track/:id', async (req, res) => {
-  try {
-    const [orders] = await pool.query('SELECT status FROM orders WHERE id = ?', [req.params.id]);
-    if (orders.length === 0) {
-      return res.status(404).json({ success: false, message: 'Order not found.' });
-    }
-    res.json({ success: true, status: orders[0].status });
-  } catch (err) {
-    console.error('Tracking Error:', err);
-    res.status(500).json({ success: false, message: 'Could not track order.' });
-  }
-});
