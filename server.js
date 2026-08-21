@@ -84,3 +84,4 @@ const pool = require('./config/db');
 pool.query("ALTER TABLE orders ADD COLUMN transaction_id VARCHAR(100) DEFAULT NULL")
   .then(()=> console.log('✅ Added transaction_id'))
   .catch(()=> console.log('⚠️ transaction_id already exists'));
+
