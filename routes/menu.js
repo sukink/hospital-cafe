@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const { requireAdmin } = require('../config/adminAuth');
 
-const CATEGORIES = ['Breakfast', 'Main Course', 'Snacks', 'Beverages'];
+const CATEGORIES = ['Breakfast', 'Main Course', 'Snacks', 'Beverages', 'Dinner', 'Desserts'];
 const FOOD_TYPES = ['veg', 'nonveg'];
 
 function isValidMenuInput(body) {
@@ -16,11 +16,12 @@ function isValidMenuInput(body) {
   return null;
 }
 
-// GET /api/menu - public, patient-facing (only available items shown)
+// GET /api/menu - public, patient-facing (safe query)
 router.get('/', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, category, description, serving, food_type, image, price, available FROM menu_items WHERE available = 1 ORDER BY category, name'
+      `SELECT id, name, category, description, serving, food_type, image, price, available 
+       FROM menu_items WHERE available = 1 ORDER BY category, name`
     );
     res.json({ success: true, items: rows });
   } catch (err) {
@@ -112,7 +113,6 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('DELETE /api/menu/:id error:', err);
-    // Likely a foreign-key style conflict if referenced by past orders (order_items snapshots by name/price, so this is rare)
     res.status(500).json({ success: false, message: 'Could not delete the item. Please try again.' });
   }
 });

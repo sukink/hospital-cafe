@@ -1,148 +1,386 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Hospital Café — Admin</title>
-<link rel="stylesheet" href="css/style.css" />
-<link rel="stylesheet" href="css/admin.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hospital Cafe - Admin Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warning: #ca8a04;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+    }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      font-size: 1.25rem;
+      margin: 0;
+      color: var(--primary);
+    }
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      background: var(--primary);
+      color: #fff;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: var(--primary-dark); }
+    .btn.danger { background: var(--danger); }
+    .btn.danger:hover { background: #b91c1c; }
+    
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    /* Login View */
+    #admin-login-view {
+      max-width: 400px;
+      margin: 4rem auto;
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+      text-align: center;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+      text-align: left;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.35rem;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    .error-msg {
+      color: var(--danger);
+      font-size: 0.875rem;
+      margin-top: 0.5rem;
+    }
+
+    /* Admin Navigation Tabs */
+    .admin-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    .admin-tab-btn {
+      background: transparent;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .admin-tab-btn.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    /* Sections */
+    .admin-section {
+      display: none;
+    }
+    .admin-section.active {
+      display: block;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      padding: 1.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+    }
+    .stat-card .label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .stat-card .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-top: 0.5rem;
+    }
+
+    /* Tables */
+    .table-container {
+      background: var(--card-bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow-x: auto;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .status-select {
+      padding: 0.35rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .small-btn {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      background: #e2e8f0;
+      color: var(--text);
+    }
+    .small-btn.primary { background: var(--primary); color: #fff; }
+    .small-btn.danger { background: var(--danger); color: #fff; }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #1e293b;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 6px;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    #toast.visible { opacity: 1; }
+  </style>
 </head>
 <body>
 
-<!-- ============ ADMIN LOGIN ============ -->
-<div id="admin-login-view">
-  <div class="landing-header">
-    <div class="logo-mark" aria-hidden="true">👨‍🍳</div>
-    <h1>Hospital Café</h1>
-    <p class="tagline">Admin Login</p>
-  </div>
-  <div class="form-card">
-    <h2>Enter Password</h2>
-    <p class="hint">Kitchen &amp; management access only.</p>
-    <form id="admin-login-form" novalidate>
-      <div class="field">
-        <label for="admin-password-input">Password</label>
-        <input id="admin-password-input" type="password" placeholder="********" autocomplete="off" />
-      </div>
-      <p class="error-text" id="admin-login-error" role="alert"></p>
-      <button class="btn" type="submit">LOGIN</button>
-      <button class="btn secondary block" type="button" id="admin-back-btn">← Back</button>
-    </form>
-  </div>
-</div>
+  <!-- Header -->
+  <header>
+    <h1>Hospital Café Admin Portal</h1>
+    <div>
+      <button id="admin-back-btn" class="small-btn" style="margin-right: 10px;">← Back to App</button>
+      <button id="logout-btn" class="btn danger" style="display: none;">Logout</button>
+    </div>
+  </header>
 
-<!-- ============ ADMIN DASHBOARD ============ -->
-<div id="admin-app" style="display:none;">
-  <div class="admin-topbar">
-    <div class="brand"><span class="badge">🏥</span> Hospital Café — Admin Dashboard</div>
-    <button class="logout-btn" id="logout-btn" type="button">LOGOUT</button>
-  </div>
+  <div class="container">
 
-  <div class="admin-tabs" role="tablist">
-    <button class="admin-tab-btn active" data-tab="orders" type="button">Orders</button>
-    <button class="admin-tab-btn" data-tab="menu" type="button">Menu</button>
-    <button class="admin-tab-btn" data-tab="stats" type="button">Statistics</button>
-  </div>
-
-  <!-- ---- STATISTICS (shown at top of orders tab too, but has its own tab for clarity) ---- -->
-  <section class="admin-section" id="tab-stats">
-    <div class="stats-grid" id="stats-grid"></div>
-  </section>
-
-  <!-- ---- ORDERS TAB ---- -->
-  <section class="admin-section active" id="tab-orders">
-    <div class="stats-grid" id="stats-grid-mini"></div>
-
-    <div class="order-filter-row" id="order-filter-row">
-      <button class="chip-btn active" data-status="" type="button">All</button>
-      <button class="chip-btn" data-status="Pending" type="button">Pending</button>
-      <button class="chip-btn" data-status="Preparing" type="button">Preparing</button>
-      <button class="chip-btn" data-status="Ready" type="button">Ready</button>
-      <button class="chip-btn" data-status="Delivered" type="button">Delivered</button>
-      <button class="chip-btn" data-status="Cancelled" type="button">Cancelled</button>
+    <!-- LOGIN VIEW -->
+    <div id="admin-login-view">
+      <h2>Admin Login</h2>
+      <form id="admin-login-form">
+        <div class="form-group">
+          <label for="admin-password-input">Password</label>
+          <input type="password" id="admin-password-input" placeholder="Enter admin password" required>
+        </div>
+        <button type="submit" class="btn" style="width: 100%;">Login</button>
+        <div id="admin-login-error" class="error-msg"></div>
+      </form>
     </div>
 
-    <div class="orders-cards" id="orders-cards"></div>
+    <!-- ADMIN APP DASHBOARD -->
+    <div id="admin-app" style="display: none;">
+      
+      <!-- Summary Statistics Grid -->
+      <div id="stats-grid-summary" class="stats-grid"></div>
 
-    <div class="orders-table-wrap">
-      <table class="orders-table">
-        <thead>
-          <tr>
-            <th>Order</th><th>Room</th><th>Items</th><th>Total</th><th>Time</th><th>Status</th><th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="orders-table-body"></tbody>
-      </table>
+      <!-- Navigation Tabs -->
+      <div class="admin-tabs">
+        <button class="admin-tab-btn active" data-tab="active">Active Orders</button>
+        <button class="admin-tab-btn" data-tab="completed">Completed / History</button>
+        <button class="admin-tab-btn" data-tab="menu">Menu Management</button>
+        <button class="admin-tab-btn" data-tab="reports">Reports & Analytics</button>
+      </div>
+
+      <!-- 1. ACTIVE ORDERS SECTION -->
+      <div id="tab-active" class="admin-section active">
+        <h2>Live Active Orders</h2>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Order # / Txn ID</th>
+                <th>Room</th>
+                <th>Items</th>
+                <th>Total / Payment</th>
+                <th>Priority</th>
+                <th>Time Placed</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="active-orders-table-body"></tbody>
+          </table>
+        </div>
+        <div id="active-orders-empty" style="text-align: center; padding: 2rem; color: var(--muted); display: none;">
+          No active orders right now.
+        </div>
+      </div>
+
+      <!-- 2. COMPLETED / HISTORY SECTION -->
+      <div id="tab-completed" class="admin-section">
+        <h2>Order History & Completed Archive</h2>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Order # / Txn ID</th>
+                <th>Room</th>
+                <th>Total / Payment</th>
+                <th>Status</th>
+                <th>Receipt Timeline (Received → Paid → Completed)</th>
+              </tr>
+            </thead>
+            <tbody id="completed-orders-table-body"></tbody>
+          </table>
+        </div>
+        <div id="completed-orders-empty" style="text-align: center; padding: 2rem; color: var(--muted); display: none;">
+          No completed order history found.
+        </div>
+      </div>
+
+      <!-- 3. MENU MANAGEMENT SECTION -->
+      <div id="tab-menu" class="admin-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h2>Menu Management</h2>
+          <button id="add-item-btn" class="btn">+ Add Food Item</button>
+        </div>
+        <div id="menu-admin-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;"></div>
+      </div>
+
+      <!-- 4. REPORTS & ANALYTICS SECTION -->
+      <div id="tab-reports" class="admin-section">
+        <h2>Reports & Analytics Dashboard</h2>
+        <div id="reports-container">
+          <p style="color: var(--muted);">Loading summary reports...</p>
+        </div>
+      </div>
+
     </div>
 
-    <div class="empty-state" id="orders-empty" style="display:none;">No orders found.</div>
-  </section>
-
-  <!-- ---- MENU TAB ---- -->
-  <section class="admin-section" id="tab-menu">
-    <button class="add-item-btn" id="add-item-btn" type="button">+ Add New Food Item</button>
-    <div class="menu-admin-grid" id="menu-admin-grid"></div>
-  </section>
-</div>
-
-<!-- ---- MENU ITEM MODAL ---- -->
-<div class="modal-overlay" id="menu-modal-overlay">
-  <div class="modal-sheet">
-    <h2 id="menu-modal-title">Add Food Item</h2>
-    <form id="menu-item-form" novalidate>
-      <input type="hidden" id="mi-id" />
-      <div class="field">
-        <label for="mi-name">Name</label>
-        <input id="mi-name" type="text" required />
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="mi-category">Category</label>
-          <select id="mi-category">
-            <option>Breakfast</option>
-            <option>Main Course</option>
-            <option>Snacks</option>
-            <option>Beverages</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="mi-type">Type</label>
-          <select id="mi-type">
-            <option value="veg">Veg</option>
-            <option value="nonveg">Non-Veg</option>
-          </select>
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="mi-serving">Serving</label>
-          <input id="mi-serving" type="text" placeholder="e.g. 1 Plate" required />
-        </div>
-        <div class="field">
-          <label for="mi-price">Price (₹)</label>
-          <input id="mi-price" type="number" min="1" step="1" required />
-        </div>
-      </div>
-      <div class="field">
-        <label for="mi-description">Description</label>
-        <textarea id="mi-description" maxlength="500"></textarea>
-      </div>
-      <div class="checkbox-field">
-        <input id="mi-available" type="checkbox" checked />
-        <label for="mi-available" style="margin:0;">Available on menu</label>
-      </div>
-      <p class="error-text" id="menu-modal-error" role="alert"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn secondary" id="menu-modal-cancel">Cancel</button>
-        <button type="submit" class="btn" id="menu-modal-save">Save</button>
-      </div>
-    </form>
   </div>
-</div>
 
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <!-- Menu Item Modal -->
+  <div id="menu-modal-overlay" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 100;">
+    <div style="background: var(--card-bg); padding: 2rem; border-radius: 12px; width: 100%; max-width: 500px; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);">
+      <h3 id="menu-modal-title" style="margin-top: 0;">Add Food Item</h3>
+      <form id="menu-item-form">
+        <input type="hidden" id="mi-id">
+        <div class="form-group">
+          <label>Item Name</label>
+          <input type="text" id="mi-name" required>
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="mi-category" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
+            <option value="Breakfast">Breakfast</option>
+            <option value="Lunch">Lunch</option>
+            <option value="Dinner">Dinner</option>
+            <option value="Main Course">Main Course</option>
+            <option value="Snacks">Snacks</option>
+            <option value="Beverages">Beverages</option>
+            <option value="Desserts">Desserts</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Food Type</label>
+          <select id="mi-type" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
+            <option value="veg">Veg 🟢</option>
+            <option value="nonveg">Non-Veg 🔴</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Serving Description (e.g. 1 Plate, 2 Pieces)</label>
+          <input type="text" id="mi-serving" required>
+        </div>
+        <div class="form-group">
+          <label>Price (₹)</label>
+          <input type="number" step="0.01" id="mi-price" required>
+        </div>
+        <div class="form-group">
+          <label>Description / Ingredients</label>
+          <input type="text" id="mi-description">
+        </div>
+        <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="mi-available" checked style="width: auto;">
+          <label for="mi-available" style="margin: 0; cursor: pointer;">Available for Ordering</label>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 1.5rem;">
+          <button type="button" id="menu-modal-cancel" class="small-btn">Cancel</button>
+          <button type="submit" class="btn">Save Item</button>
+        </div>
+        <div id="menu-modal-error" class="error-msg"></div>
+      </form>
+    </div>
+  </div>
 
-<script src="js/config.js"></script>
-<script src="js/admin.js"></script>
+  <!-- Toast Notification element -->
+  <div id="toast"></div>
+
+  <!-- Admin Controller Script -->
+  <script src="js/admin.js"></script>
+  <script>
+    // Toggle logout button visibility based on login session state
+    setInterval(() => {
+      const logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) {
+        logoutBtn.style.display = sessionStorage.getItem('hospitalCafeAdminToken') ? 'inline-block' : 'none';
+      }
+    }, 500);
+  </script>
 </body>
 </html>

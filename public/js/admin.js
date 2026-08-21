@@ -1,123 +1,195 @@
 (function () {
-  const API = window.API_BASE_URL;
+  'use strict';
+
+  const API = window.API_BASE_URL || '';
   const TOKEN_KEY = 'hospitalCafeAdminToken';
 
-  let statusFilter = '';
   let menuCache = [];
+  let toastTimer = null;
 
-  // ---------- Token helpers ----------
   function getToken() {
     return sessionStorage.getItem(TOKEN_KEY);
   }
+
   function setToken(token) {
+    if (!token) return false;
     sessionStorage.setItem(TOKEN_KEY, token);
+    return true;
   }
+
   function clearToken() {
     sessionStorage.removeItem(TOKEN_KEY);
   }
 
   function authHeaders() {
-    return { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' };
+    const token = getToken();
+    return {
+      'Authorization': token ? `Bearer ${token}` : '',
+      'Content-Type': 'application/json'
+    };
   }
 
-  // ---------- Toast ----------
-  let toastTimer = null;
+  async function apiFetch(url, options = {}) {
+    const token = getToken();
+    if (!token) {
+      showLogin();
+      return null;
+    }
+
+    const requestOptions = {
+      ...options,
+      headers: {
+        ...authHeaders(),
+        ...(options.headers || {})
+      }
+    };
+
+    try {
+      const response = await fetch(url, requestOptions);
+
+      if (response.status === 401) {
+        clearToken();
+        showLogin();
+        showToast('Admin session expired. Please login again.');
+        return null;
+      }
+
+      const data = await response.json();
+      if (!response.ok) {
+        return { ...data, success: false, status: response.status };
+      }
+      return data;
+    } catch (error) {
+      console.error('[API] Network error:', url, error);
+      showToast('Network error. Please check your connection.');
+      return { success: false, message: 'Network error.' };
+    }
+  }
+
   function showToast(message) {
     const toast = document.getElementById('toast');
+    if (!toast) return;
     toast.textContent = message;
     toast.classList.add('visible');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('visible'), 2200);
   }
 
-  function escapeHtml(str) {
+  function escapeHtml(value) {
     const div = document.createElement('div');
-    div.textContent = str == null ? '' : String(str);
+    div.textContent = value == null ? '' : String(value);
     return div.innerHTML;
   }
 
-  function formatTime(ts) {
+  function formatTime(timestamp) {
+    if (!timestamp) return '—';
     try {
-      return new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-    } catch (e) {
-      return ts;
+      const date = new Date(timestamp);
+      return Number.isNaN(date.getTime()) ? String(timestamp) : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    } catch (error) {
+      return timestamp;
     }
   }
 
-  // ---------- View switching ----------
   function showDashboard() {
-    document.getElementById('admin-login-view').style.display = 'none';
-    document.getElementById('admin-app').style.display = 'block';
+    const loginView = document.getElementById('admin-login-view');
+    const adminApp = document.getElementById('admin-app');
+    if (loginView) loginView.style.display = 'none';
+    if (adminApp) adminApp.style.display = 'block';
     loadEverything();
   }
+
   function showLogin() {
-    document.getElementById('admin-app').style.display = 'none';
-    document.getElementById('admin-login-view').style.display = 'block';
+    const loginView = document.getElementById('admin-login-view');
+    const adminApp = document.getElementById('admin-app');
+    if (adminApp) adminApp.style.display = 'none';
+    if (loginView) loginView.style.display = 'block';
   }
 
-  // ---------- Login ----------
-  document.getElementById('admin-back-btn').addEventListener('click', () => {
-    window.location.href = 'index.html';
-  });
+  // Back Button
+  const backBtn = document.getElementById('admin-back-btn');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => { window.location.href = 'index.html'; });
+  }
 
-  document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const passwordInput = document.getElementById('admin-password-input');
-    const errorEl = document.getElementById('admin-login-error');
-    errorEl.textContent = '';
+  // Login Form Submission
+  const loginForm = document.getElementById('admin-login-form');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const passwordInput = document.getElementById('admin-password-input');
+      const errorEl = document.getElementById('admin-login-error');
+      if (errorEl) errorEl.textContent = '';
 
-    const password = passwordInput.value;
-    if (!password) {
-      errorEl.textContent = 'Please enter the admin password.';
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API}/api/admin/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
-      const data = await res.json();
-      if (!data.success) {
-        errorEl.textContent = data.message || 'Incorrect password. Please try again.';
+      const password = passwordInput ? passwordInput.value : '';
+      if (!password) {
+        if (errorEl) errorEl.textContent = 'Please enter the admin password.';
         return;
       }
-      setToken(data.token);
-      passwordInput.value = '';
-      showDashboard();
-    } catch (err) {
-      console.error(err);
-      errorEl.textContent = 'Network error. Please check your connection and try again.';
-    }
-  });
 
-  // ---------- Logout ----------
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    try {
-      await fetch(`${API}/api/admin/logout`, { method: 'POST', headers: authHeaders() });
-    } catch (e) { /* ignore */ }
-    clearToken();
-    showLogin();
-  });
+      try {
+        const response = await fetch(`${API}/api/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
 
-  // ---------- Tabs ----------
-  document.querySelectorAll('.admin-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('tab-' + btn.getAttribute('data-tab')).classList.add('active');
+        const data = await response.json();
+        if (!response.ok || !data.success || !data.token) {
+          if (errorEl) errorEl.textContent = data.message || 'Incorrect password. Please try again.';
+          return;
+        }
+
+        setToken(data.token);
+        if (passwordInput) passwordInput.value = '';
+        showDashboard();
+      } catch (error) {
+        if (errorEl) errorEl.textContent = 'Network error. Please try again.';
+      }
+    });
+  }
+
+  // Logout Button
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await apiFetch(`${API}/api/admin/logout`, { method: 'POST' });
+      } catch (error) { /* ignore */ }
+      clearToken();
+      showLogin();
+    });
+  }
+
+  // Admin Tabs Switching
+  document.querySelectorAll('.admin-tab-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      document.querySelectorAll('.admin-tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.admin-section').forEach(section => section.classList.remove('active'));
+      button.classList.add('active');
+      const tabName = button.getAttribute('data-tab');
+      const section = document.getElementById(`tab-${tabName}`);
+      if (section) section.classList.add('active');
+
+      if (tabName === 'completed' || tabName === 'history') {
+        loadCompletedOrders();
+      } else if (tabName === 'reports' || tabName === 'analytics') {
+        loadReports();
+      } else if (tabName === 'menu') {
+        loadMenuAdmin();
+      } else if (tabName === 'active') {
+        loadOrders();
+      }
     });
   });
 
-  // ---------- Load everything ----------
   async function loadEverything() {
     await Promise.all([loadStats(), loadOrders(), loadMenuAdmin()]);
   }
 
   function handleAuthFailure(data) {
-    if (data && data.message && /not authorized/i.test(data.message)) {
+    if (!data) return false;
+    if (data.status === 401 || /unauthorized/i.test(data.message || '')) {
       clearToken();
       showLogin();
       return true;
@@ -125,174 +197,222 @@
     return false;
   }
 
-  // ---------- Statistics ----------
+  // Statistics
   async function loadStats() {
-    try {
-      const res = await fetch(`${API}/api/orders/stats/summary`, { headers: authHeaders() });
-      const data = await res.json();
-      if (!data.success) { handleAuthFailure(data); return; }
-      renderStats(data.stats);
-    } catch (err) {
-      console.error(err);
+    const data = await apiFetch(`${API}/api/orders/stats/summary`);
+    if (!data || !data.success) {
+      if (data) handleAuthFailure(data);
+      return;
     }
+    renderStats(data.stats || {});
   }
 
   function statCardsHtml(stats) {
-    const pending = stats.Pending ?? stats.pending ?? 0;
-    const preparing = stats.Preparing ?? stats.preparing ?? 0;
-    const ready = stats.Ready ?? stats.ready ?? 0;
-    const delivered = stats.Delivered ?? stats.delivered ?? 0;
-    const todaysOrders = stats.todaysOrders ?? 0;
-    const todaysRevenue = stats.todaysRevenue ?? 0;
-
     return `
-      <div class="stat-card pending"><div class="label">Pending Orders</div><div class="value">${pending}</div></div>
-      <div class="stat-card preparing"><div class="label">Preparing</div><div class="value">${preparing}</div></div>
-      <div class="stat-card ready"><div class="label">Ready</div><div class="value">${ready}</div></div>
-      <div class="stat-card delivered"><div class="label">Delivered</div><div class="value">${delivered}</div></div>
-      <div class="stat-card"><div class="label">Today's Orders</div><div class="value">${todaysOrders}</div></div>
-      <div class="stat-card revenue"><div class="label">Today's Order Amount</div><div class="value">₹${todaysRevenue}</div></div>
+      <div class="stat-card pending"><div class="label">Pending Orders</div><div class="value">${stats.pending_orders ?? 0}</div></div>
+      <div class="stat-card preparing"><div class="label">Preparing</div><div class="value">${stats.preparing_orders ?? 0}</div></div>
+      <div class="stat-card ready"><div class="label">Ready</div><div class="value">${stats.ready_orders ?? 0}</div></div>
+      <div class="stat-card delivered"><div class="label">Completed</div><div class="value">${stats.completed_orders ?? 0}</div></div>
+      <div class="stat-card"><div class="label">Today's Orders</div><div class="value">${stats.total_orders ?? 0}</div></div>
+      <div class="stat-card revenue"><div class="label">Today's Revenue</div><div class="value">₹${stats.today_revenue ?? 0}</div></div>
     `;
   }
 
   function renderStats(stats) {
-    document.getElementById('stats-grid').innerHTML = statCardsHtml(stats);
-    document.getElementById('stats-grid-mini').innerHTML = statCardsHtml(stats);
+    const grid = document.getElementById('stats-grid-summary') || document.getElementById('stats-grid');
+    if (grid) grid.innerHTML = statCardsHtml(stats);
   }
 
-  // ---------- Orders ----------
-  document.getElementById('order-filter-row').addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-status]');
-    if (!btn) return;
-    document.querySelectorAll('#order-filter-row .chip-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    statusFilter = btn.getAttribute('data-status');
-    loadOrders();
-  });
-
+  // Active Orders
   async function loadOrders() {
-    try {
-      const url = `${API}/api/orders` + (statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : '');
-      const res = await fetch(url, { headers: authHeaders() });
-      const data = await res.json();
-      if (!data.success) { handleAuthFailure(data); return; }
-      renderOrders(data.orders);
-    } catch (err) {
-      console.error(err);
+    const data = await apiFetch(`${API}/api/orders/active`);
+    if (!data || !data.success) {
+      if (data) handleAuthFailure(data);
+      return;
     }
+    renderOrders(Array.isArray(data.orders) ? data.orders : []);
   }
 
-  const STATUS_OPTIONS = ['Pending', 'Preparing', 'Ready', 'Delivered', 'Cancelled'];
+  const STATUS_OPTIONS = ['New', 'Accepted', 'Preparing', 'Ready', 'Out for Delivery', 'Delivered', 'Completed', 'Cancelled'];
 
   function statusOptionsHtml(current) {
-    return STATUS_OPTIONS.map(s => `<option value="${s}" ${s === current ? 'selected' : ''}>${s}</option>`).join('');
+    return STATUS_OPTIONS.map(status => `<option value="${status}" ${status === current ? 'selected' : ''}>${status}</option>`).join('');
   }
 
   function itemsSummary(items) {
-    return items.map(it => `${escapeHtml(it.item_name)} × ${it.quantity}`).join(', ');
+    if (!Array.isArray(items) || items.length === 0) return 'No items';
+    return items.map(item => `<div>${escapeHtml(item.item_name || item.name)} × ${item.quantity ?? 1}</div>`).join('');
   }
 
   function renderOrders(orders) {
-    const cardsEl = document.getElementById('orders-cards');
-    const tbodyEl = document.getElementById('orders-table-body');
-    const emptyEl = document.getElementById('orders-empty');
+    const tbody = document.getElementById('active-orders-table-body') || document.getElementById('orders-table-body');
+    const empty = document.getElementById('active-orders-empty') || document.getElementById('orders-empty');
+    if (!tbody) return;
 
-    cardsEl.innerHTML = '';
-    tbodyEl.innerHTML = '';
-
-    if (orders.length === 0) {
-      emptyEl.style.display = 'block';
+    tbody.innerHTML = '';
+    if (!orders || orders.length === 0) {
+      if (empty) empty.style.display = 'block';
       return;
     }
-    emptyEl.style.display = 'none';
+    if (empty) empty.style.display = 'none';
 
     orders.forEach(order => {
-      // Payment badge with Transaction ID
-      const paymentBadge = order.payment_status === 'Paid' 
-        ? `<span style="background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; display: inline-block; margin-top: 6px;">💰 Amount Received: ₹${order.total_amount}</span>
-           <br><span style="font-size: 11px; color: #555; display: inline-block; margin-top: 4px; font-family: monospace;">Txn ID: ${escapeHtml(order.transaction_id || 'N/A')}</span>`
-        : `<span style="background: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-block; margin-top: 6px;">Unpaid</span>`;
+      const row = document.createElement('tr');
+      const orderNumber = order.order_number || `#${order.id}`;
+      const transactionId = order.transaction_id || 'N/A';
+      const roomNumber = order.room_number || 'N/A';
+      const totalAmount = order.total_amount ?? 0;
+      const paymentStatus = order.payment_status || 'Pending';
+      const priority = order.priority || 'Normal';
+      const orderTime = order.time_placed || order.order_time;
+      const status = order.status || 'New';
 
-      // Mobile card
-      const card = document.createElement('div');
-      card.className = 'order-card';
-      card.innerHTML = `
-        <div class="head">
-          <span class="order-id">Order #${order.id}</span>
-          <span class="room">Room ${escapeHtml(order.room_number)}</span>
-        </div>
-        <div class="time">${formatTime(order.order_time)}</div>
-        ${paymentBadge}
-        <div class="items-list" style="margin-top: 10px;">
-          ${order.items.map(it => `<div class="row"><span>${escapeHtml(it.item_name)} × ${it.quantity}</span><span>₹${it.amount}</span></div>`).join('')}
-        </div>
-        ${order.special_instructions ? `<div class="instructions">Note: ${escapeHtml(order.special_instructions)}</div>` : ''}
-        <div class="total-row"><span>TOTAL</span><span>₹${order.total_amount}</span></div>
-        <div class="status-row">
-          <select class="status-select" data-order-id="${order.id}">${statusOptionsHtml(order.status)}</select>
-        </div>
-      `;
-      card.querySelector('.status-select').addEventListener('change', (e) => updateOrderStatus(order.id, e.target.value));
-      cardsEl.appendChild(card);
+      const paymentClass = paymentStatus === 'Successful' || paymentStatus === 'Paid'
+        ? 'color:#155724;font-weight:bold;'
+        : 'color:#721c24;font-weight:bold;';
 
-      // Desktop row
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>#${order.id}</td>
-        <td>${escapeHtml(order.room_number)}</td>
-        <td>${itemsSummary(order.items)}${order.special_instructions ? `<br><span style="color:var(--muted); font-size:12px;">Note: ${escapeHtml(order.special_instructions)}</span>` : ''}</td>
-        <td>₹${order.total_amount}<br>${paymentBadge}</td>
-        <td>${formatTime(order.order_time)}</td>
-        <td></td>
-        <td></td>
+      row.innerHTML = `
+        <td><strong>${escapeHtml(orderNumber)}</strong><br><small style="font-family:monospace; color:#555;">Txn ID: ${escapeHtml(transactionId)}</small></td>
+        <td>Room ${escapeHtml(roomNumber)}</td>
+        <td>${itemsSummary(order.items)}</td>
+        <td><strong>₹${totalAmount}</strong><br><small style="${paymentClass}">${escapeHtml(paymentStatus)}</small></td>
+        <td><span style="padding:4px 8px; border-radius:5px; background:#f1f1f1; font-size:12px;">${escapeHtml(priority)}</span></td>
+        <td>${formatTime(orderTime)}</td>
+        <td><select class="status-select" data-order-id="${order.id}">${statusOptionsHtml(status)}</select></td>
+        <td><button type="button" class="small-btn primary" data-action="update-status">Update</button></td>
       `;
-      const statusTd = tr.children[5];
-      const select = document.createElement('select');
-      select.className = 'status-select';
-      select.innerHTML = statusOptionsHtml(order.status);
-      select.addEventListener('change', (e) => updateOrderStatus(order.id, e.target.value));
-      statusTd.appendChild(select);
-      tbodyEl.appendChild(tr);
+
+      const select = row.querySelector('.status-select');
+      const updateButton = row.querySelector('[data-action="update-status"]');
+
+      if (updateButton && select) {
+        updateButton.addEventListener('click', () => updateOrderStatus(order.id, select.value));
+      }
+
+      tbody.appendChild(row);
     });
   }
 
   async function updateOrderStatus(orderId, status) {
+    if (!orderId) return;
+    const data = await apiFetch(`${API}/api/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
+    });
+
+    if (!data || !data.success) {
+      if (data) handleAuthFailure(data);
+      showToast(data?.message || 'Could not update order status.');
+      return;
+    }
+
+    showToast(`Order updated to ${status}`);
+    await loadOrders();
+    await loadStats();
+  }
+
+  // Completed / History Orders (Receipt Timeline view)
+  async function loadCompletedOrders() {
     try {
-      const res = await fetch(`${API}/api/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify({ status })
-      });
-      const data = await res.json();
-      if (!data.success) {
-        if (!handleAuthFailure(data)) showToast(data.message || 'Could not update status.');
-        return;
-      }
-      showToast(`Order #${orderId} updated to ${status}`);
-      loadOrders();
-      loadStats();
+      const search = document.getElementById('completed-search')?.value || '';
+      const status = document.getElementById('completed-status-filter')?.value || '';
+      const date = document.getElementById('completed-date-filter')?.value || '';
+
+      let url = `${API}/api/orders/completed?`;
+      if (search) url += `search=${encodeURIComponent(search)}&`;
+      if (status) url += `status=${encodeURIComponent(status)}&`;
+      if (date) url += `date=${encodeURIComponent(date)}&`;
+
+      const data = await apiFetch(url);
+      if (!data || !data.success) return;
+
+      renderCompletedOrders(data.orders || []);
     } catch (err) {
-      console.error(err);
-      showToast('Network error updating status.');
+      console.error('Completed Orders Error:', err);
     }
   }
 
-  // ---------- Menu management ----------
-  async function loadMenuAdmin() {
-    try {
-      const res = await fetch(`${API}/api/menu/all`, { headers: authHeaders() });
-      const data = await res.json();
-      if (!data.success) { handleAuthFailure(data); return; }
-      menuCache = data.items;
-      renderMenuAdmin();
-    } catch (err) {
-      console.error(err);
+  function renderCompletedOrders(orders) {
+    const tbody = document.getElementById('completed-orders-table-body') || document.getElementById('completed-table-body');
+    const empty = document.getElementById('completed-orders-empty') || document.getElementById('completed-empty');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    if (!orders || orders.length === 0) {
+      if (empty) empty.style.display = 'block';
+      return;
     }
+    if (empty) empty.style.display = 'none';
+
+    orders.forEach(order => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><strong>${escapeHtml(order.order_number || ('#' + order.id))}</strong><br><small style="font-family:monospace; color:#555;">Txn ID: ${escapeHtml(order.transaction_id || 'N/A')}</small></td>
+        <td>Room ${escapeHtml(order.room_number)}</td>
+        <td><strong>₹${order.total_amount}</strong><br><small style="color:#155724; font-weight:bold;">${escapeHtml(order.payment_status)}</small></td>
+        <td><span style="padding:4px 8px; border-radius:5px; background:#e2e3e5; font-size:12px;">${escapeHtml(order.status)}</span></td>
+        <td>
+          <div style="font-size: 12px; line-height: 1.5;">
+            <div>📥 <strong>Received:</strong> ${formatTime(order.time_placed || order.order_time)}</div>
+            <div>💳 <strong>Paid:</strong> ${formatTime(order.time_payment || order.order_time)}</div>
+            <div>✅ <strong>Completed:</strong> ${formatTime(order.time_delivered)}</div>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+
+  const filterBtn = document.getElementById('completed-filter-btn') || document.querySelector('.completed-filter-action');
+  if (filterBtn) {
+    filterBtn.addEventListener('click', loadCompletedOrders);
+  }
+
+  // Reports & Analytics
+  async function loadReports() {
+    try {
+      const data = await apiFetch(`${API}/api/admin/reports/daily`);
+      if (!data || !data.success) return;
+
+      const report = data.report || {};
+      const container = document.getElementById('tab-reports') || document.getElementById('tab-analytics') || document.getElementById('reports-container');
+      if (!container) return;
+
+      container.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+          <div class="stat-card"><div class="label">Total Orders</div><div class="value">${report.total_orders || 0}</div></div>
+          <div class="stat-card revenue"><div class="label">Total Revenue</div><div class="value">₹${report.total_revenue || 0}</div></div>
+          <div class="stat-card delivered"><div class="label">Completed Orders</div><div class="value">${report.completed_orders || 0}</div></div>
+          <div class="stat-card"><div class="label">Cancelled Orders</div><div class="value">${report.cancelled_orders || 0}</div></div>
+        </div>
+        <div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+          <h3>Performance Timeline & Metrics</h3>
+          <p style="margin: 10px 0;"><strong>Average Order Value:</strong> ₹${report.average_order_value ? Number(report.average_order_value).toFixed(2) : '0.00'}</p>
+          <p style="margin: 10px 0;"><strong>Average Prep Time:</strong> ${report.avg_prep_time ? Math.round(report.avg_prep_time) : '0'} mins</p>
+          <p style="margin: 10px 0;"><strong>Average Delivery Time:</strong> ${report.avg_delivery_time ? Math.round(report.avg_delivery_time) : '0'} mins</p>
+        </div>
+      `;
+    } catch (err) {
+      console.error('Reports Error:', err);
+    }
+  }
+
+  // Menu Management
+  async function loadMenuAdmin() {
+    const data = await apiFetch(`${API}/api/menu/all`);
+    if (!data || !data.success) {
+      if (data) handleAuthFailure(data);
+      return;
+    }
+    menuCache = Array.isArray(data.items) ? data.items : [];
+    renderMenuAdmin();
   }
 
   function renderMenuAdmin() {
     const grid = document.getElementById('menu-admin-grid');
+    if (!grid) return;
     grid.innerHTML = '';
+
     menuCache.forEach(item => {
       const card = document.createElement('div');
       card.className = 'menu-admin-card' + (item.available ? '' : ' disabled');
@@ -300,16 +420,17 @@
         <div class="row1">
           <div>
             <div class="name">${escapeHtml(item.name)} ${item.food_type === 'veg' ? '🟢' : '🔴'}</div>
-            <div class="meta">${escapeHtml(item.category)} • ${escapeHtml(item.serving)}</div>
+            <div class="meta">${escapeHtml(item.category || '')} • ${escapeHtml(item.serving || '')}</div>
           </div>
-          <div class="price">₹${Number(item.price)}</div>
+          <div class="price">₹${Number(item.price || 0)}</div>
         </div>
         <div class="actions">
-          <button class="small-btn primary" data-action="edit">Edit</button>
-          <button class="small-btn" data-action="toggle">${item.available ? 'Disable' : 'Enable'}</button>
-          <button class="small-btn danger" data-action="delete">Delete</button>
+          <button class="small-btn primary" data-action="edit" type="button">Edit</button>
+          <button class="small-btn" data-action="toggle" type="button">${item.available ? 'Disable' : 'Enable'}</button>
+          <button class="small-btn danger" data-action="delete" type="button">Delete</button>
         </div>
       `;
+
       card.querySelector('[data-action="edit"]').addEventListener('click', () => openMenuModal(item));
       card.querySelector('[data-action="toggle"]').addEventListener('click', () => toggleAvailability(item));
       card.querySelector('[data-action="delete"]').addEventListener('click', () => deleteMenuItem(item));
@@ -318,46 +439,45 @@
   }
 
   async function toggleAvailability(item) {
-    try {
-      const res = await fetch(`${API}/api/menu/${item.id}/availability`, {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify({ available: item.available ? 0 : 1 })
-      });
-      const data = await res.json();
-      if (!data.success) { if (!handleAuthFailure(data)) showToast(data.message || 'Could not update item.'); return; }
-      showToast(`${item.name} ${item.available ? 'disabled' : 'enabled'}`);
-      loadMenuAdmin();
-    } catch (err) {
-      console.error(err);
-      showToast('Network error.');
+    const data = await apiFetch(`${API}/api/menu/${item.id}/availability`, {
+      method: 'PATCH',
+      body: JSON.stringify({ available: item.available ? 0 : 1 })
+    });
+    if (!data || !data.success) {
+      if (data) handleAuthFailure(data);
+      showToast(data?.message || 'Could not update item.');
+      return;
     }
+    showToast(`${item.name} ${item.available ? 'disabled' : 'enabled'}`);
+    loadMenuAdmin();
   }
 
   async function deleteMenuItem(item) {
     if (!confirm(`Delete "${item.name}" from the menu? This cannot be undone.`)) return;
-    try {
-      const res = await fetch(`${API}/api/menu/${item.id}`, { method: 'DELETE', headers: authHeaders() });
-      const data = await res.json();
-      if (!data.success) { if (!handleAuthFailure(data)) showToast(data.message || 'Could not delete item.'); return; }
-      showToast(`${item.name} deleted`);
-      loadMenuAdmin();
-    } catch (err) {
-      console.error(err);
-      showToast('Network error.');
+    const data = await apiFetch(`${API}/api/menu/${item.id}`, { method: 'DELETE' });
+    if (!data || !data.success) {
+      if (data) handleAuthFailure(data);
+      showToast(data?.message || 'Could not delete item.');
+      return;
     }
+    showToast(`${item.name} deleted`);
+    loadMenuAdmin();
   }
 
-  // ---------- Menu modal (add / edit) ----------
   const overlay = document.getElementById('menu-modal-overlay');
+  const addItemBtn = document.getElementById('add-item-btn');
+  const modalCancel = document.getElementById('menu-modal-cancel');
 
-  document.getElementById('add-item-btn').addEventListener('click', () => openMenuModal(null));
-  document.getElementById('menu-modal-cancel').addEventListener('click', closeMenuModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMenuModal(); });
+  if (addItemBtn) addItemBtn.addEventListener('click', () => openMenuModal(null));
+  if (modalCancel) modalCancel.addEventListener('click', closeMenuModal);
+  if (overlay) overlay.addEventListener('click', e => { if (e.target === overlay) closeMenuModal(); });
 
   function openMenuModal(item) {
-    document.getElementById('menu-modal-title').textContent = item ? 'Edit Food Item' : 'Add Food Item';
-    document.getElementById('menu-modal-error').textContent = '';
+    const title = document.getElementById('menu-modal-title');
+    const error = document.getElementById('menu-modal-error');
+    if (title) title.textContent = item ? 'Edit Food Item' : 'Add Food Item';
+    if (error) error.textContent = '';
+
     document.getElementById('mi-id').value = item ? item.id : '';
     document.getElementById('mi-name').value = item ? item.name : '';
     document.getElementById('mi-category').value = item ? item.category : 'Breakfast';
@@ -366,53 +486,52 @@
     document.getElementById('mi-price').value = item ? Number(item.price) : '';
     document.getElementById('mi-description').value = item ? (item.description || '') : '';
     document.getElementById('mi-available').checked = item ? !!item.available : true;
-    overlay.classList.add('visible');
+    if (overlay) overlay.classList.add('visible');
   }
 
   function closeMenuModal() {
-    overlay.classList.remove('visible');
+    if (overlay) overlay.classList.remove('visible');
   }
 
-  document.getElementById('menu-item-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const errorEl = document.getElementById('menu-modal-error');
-    errorEl.textContent = '';
+  const menuItemForm = document.getElementById('menu-item-form');
+  if (menuItemForm) {
+    menuItemForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const errorEl = document.getElementById('menu-modal-error');
+      if (errorEl) errorEl.textContent = '';
 
-    const id = document.getElementById('mi-id').value;
-    const payload = {
-      name: document.getElementById('mi-name').value.trim(),
-      category: document.getElementById('mi-category').value,
-      food_type: document.getElementById('mi-type').value,
-      serving: document.getElementById('mi-serving').value.trim(),
-      price: Number(document.getElementById('mi-price').value),
-      description: document.getElementById('mi-description').value.trim(),
-      available: document.getElementById('mi-available').checked ? 1 : 0
-    };
+      const id = document.getElementById('mi-id').value;
+      const payload = {
+        name: document.getElementById('mi-name').value.trim(),
+        category: document.getElementById('mi-category').value,
+        food_type: document.getElementById('mi-type').value,
+        serving: document.getElementById('mi-serving').value.trim(),
+        price: Number(document.getElementById('mi-price').value),
+        description: document.getElementById('mi-description').value.trim(),
+        available: document.getElementById('mi-available').checked ? 1 : 0
+      };
 
-    if (!payload.name || !payload.serving || !payload.price || payload.price <= 0) {
-      errorEl.textContent = 'Please fill in name, serving, and a valid price.';
-      return;
-    }
-
-    try {
-      const url = id ? `${API}/api/menu/${id}` : `${API}/api/menu`;
-      const method = id ? 'PUT' : 'POST';
-      const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(payload) });
-      const data = await res.json();
-      if (!data.success) {
-        if (!handleAuthFailure(data)) errorEl.textContent = data.message || 'Could not save item.';
+      if (!payload.name || !payload.serving || !payload.price || payload.price <= 0) {
+        if (errorEl) errorEl.textContent = 'Please fill in name, serving, and a valid price.';
         return;
       }
+
+      const url = id ? `${API}/api/menu/${id}` : `${API}/api/menu`;
+      const method = id ? 'PUT' : 'POST';
+
+      const data = await apiFetch(url, { method, body: JSON.stringify(payload) });
+      if (!data || !data.success) {
+        if (data) handleAuthFailure(data);
+        if (errorEl) errorEl.textContent = data?.message || 'Could not save item.';
+        return;
+      }
+
       showToast(id ? 'Item updated' : 'Item added');
       closeMenuModal();
       loadMenuAdmin();
-    } catch (err) {
-      console.error(err);
-      errorEl.textContent = 'Network error. Please try again.';
-    }
-  });
+    });
+  }
 
-  // ---------- Init ----------
   if (getToken()) {
     showDashboard();
   } else {
