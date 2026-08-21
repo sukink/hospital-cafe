@@ -138,13 +138,20 @@
   }
 
   function statCardsHtml(stats) {
+    const pending = stats.Pending ?? stats.pending ?? 0;
+    const preparing = stats.Preparing ?? stats.preparing ?? 0;
+    const ready = stats.Ready ?? stats.ready ?? 0;
+    const delivered = stats.Delivered ?? stats.delivered ?? 0;
+    const todaysOrders = stats.todaysOrders ?? 0;
+    const todaysRevenue = stats.todaysRevenue ?? 0;
+
     return `
-      <div class="stat-card pending"><div class="label">Pending Orders</div><div class="value">${stats.pending}</div></div>
-      <div class="stat-card preparing"><div class="label">Preparing</div><div class="value">${stats.preparing}</div></div>
-      <div class="stat-card ready"><div class="label">Ready</div><div class="value">${stats.ready}</div></div>
-      <div class="stat-card delivered"><div class="label">Delivered</div><div class="value">${stats.delivered}</div></div>
-      <div class="stat-card"><div class="label">Today's Orders</div><div class="value">${stats.todaysOrders}</div></div>
-      <div class="stat-card revenue"><div class="label">Today's Order Amount</div><div class="value">₹${stats.todaysRevenue}</div></div>
+      <div class="stat-card pending"><div class="label">Pending Orders</div><div class="value">${pending}</div></div>
+      <div class="stat-card preparing"><div class="label">Preparing</div><div class="value">${preparing}</div></div>
+      <div class="stat-card ready"><div class="label">Ready</div><div class="value">${ready}</div></div>
+      <div class="stat-card delivered"><div class="label">Delivered</div><div class="value">${delivered}</div></div>
+      <div class="stat-card"><div class="label">Today's Orders</div><div class="value">${todaysOrders}</div></div>
+      <div class="stat-card revenue"><div class="label">Today's Order Amount</div><div class="value">₹${todaysRevenue}</div></div>
     `;
   }
 
