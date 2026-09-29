@@ -114,8 +114,7 @@
 
     if (notice) notice.style.display = isSuper ? 'none' : 'block';
     if (createCard) createCard.style.display = isSuper ? 'block' : 'none';
-    if (staffTabBtn) staffTabBtn.style.display = 'inline-block'; // visible either way; content is gated
-
+    if (staffTabBtn) staffTabBtn.style.display = 'inline-block';
   }
 
   function showLogin() {
@@ -404,7 +403,7 @@
     await loadStats();
   }
 
-  // Completed / History Orders (Receipt Timeline view)
+  // Completed / History Orders
   async function loadCompletedOrders() {
     try {
       const search = document.getElementById('completed-search')?.value || '';
@@ -467,7 +466,8 @@
   }
 
   // Reports & Analytics
-  let lastReportsOrders = []; // kept for CSV export
+  let lastReportsOrders = [];
+  let lastReportsItemRows = [];
 
   function reportsRangeParams() {
     const quickDate = document.getElementById('reports-date-filter')?.value || '';
@@ -483,8 +483,6 @@
     return '';
   }
 
-  let lastReportsItemRows = []; // per food-item rows (incl. add-ons) for the detailed CSV
-
   async function loadReports() {
     try {
       const qs = reportsRangeParams();
@@ -497,8 +495,6 @@
       if (!summaryData || !summaryData.success) return;
 
       const report = summaryData.report || {};
-      // Target the INNER container only — never the outer #tab-reports, which
-      // also holds the page heading and the date filter bar above.
       const container = document.getElementById('reports-container');
       if (!container) return;
 
@@ -743,12 +739,10 @@
     });
   }
 
-
   // ---------- Add-ons Management ----------
   let addonsCache = [];
 
   async function loadAddons() {
-    // Menu items are needed for the "applies to" checklist in the modal.
     if (!menuCache.length) await loadMenuAdmin();
     const data = await apiFetch(`${API}/api/addons`);
     if (!data || !data.success) {
@@ -837,7 +831,17 @@
     document.getElementById('ad-price').value = addon ? Number(addon.price) : '';
     document.getElementById('ad-available').checked = addon ? !!addon.available : true;
 
-    const selectedIds = new Set(addon ? (addon.menu_item_ids || []) : []);
+    // Fix: properly fetch pre-selected items array whether it uses menu_item_ids or items
+    let itemIds = [];
+    if (addon) {
+      if (Array.isArray(addon.menu_item_ids)) {
+        itemIds = addon.menu_item_ids;
+      } else if (Array.isArray(addon.items)) {
+        itemIds = addon.items.map(i => i.id || i.menu_item_id);
+      }
+    }
+    const selectedIds = new Set(itemIds);
+
     const list = document.getElementById('ad-items-list');
     if (list) {
       if (menuCache.length === 0) {
@@ -900,7 +904,7 @@
     });
   }
 
-  // ---------- Staff Accounts (super admin only) ----------
+  // ---------- Staff Accounts ----------
   const staffCreateForm = document.getElementById('staff-create-form');
   if (staffCreateForm) {
     staffCreateForm.addEventListener('submit', async event => {
@@ -936,7 +940,6 @@
   async function loadStaffUsers() {
     const data = await apiFetch(`${API}/api/admin/users`);
     if (!data || !data.success) {
-      // Non-super accounts get a 403 here — that's expected, just show the notice.
       renderStaffUsers([]);
       return;
     }
